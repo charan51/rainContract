@@ -1,70 +1,86 @@
-pragma solidity ^0.5.0;
-import {Iterator} from './utils.sol';
+pragma solidity  ^0.5.0;
 contract CropDamage {
-    Iterator.Status claimState;
-    address private admin;
-    uint private adminFunds;
-    uint private insuranceFunds;
-    constructor(uint _funds) public {
-        admin = msg.sender;
-        insuranceFunds = _funds;
+    enum Status {ACTIVE, INACTIVE, CANCLED, REJECTED}
+    struct Claim {
+        Status status;
+        uint premium;
+        uint acers;
+        string location;
+        string reason;
+        uint totalClaim;
     }
-    address public currentUser;
-    // library for Iterator mapping
-    Iterator.Data knownValues;
-   
-    // Events List
+    struct RegisterFarmer{
+        address farmer;
+        string name;
+        string location;
+        uint kisanNumber;
+        mapping(address => Claim) claims;
+    }
+      uint[] keys;
+    mapping(uint => RegisterFarmer) public elements;
+    address private admin;
+    constructor() public {
+        admin = msg.sender;
+    }
+    event claimPolicyStatus(string);
     event CallForRegister(string);
     event RejectUserRegister(string, uint);
     event verifyKissanNumber(uint);
     event sendCropAnyalsis(string, uint, uint);
-    // To check if user exists on the contract
-    function checkUser(uint _kissanNumber) public returns(bool) {
-        bool exists = Iterator.getElement(knownValues, _kissanNumber) != address(0);
-        if(exists) {
-            currentUser = Iterator.getElement(knownValues, _kissanNumber);
-            return true;
+    function verifyFarmer(uint number) public view returns (address) {
+        bool exists = elements[number].farmer != address(0);
+            if(exists){
+           return elements[number].farmer;
+            }else{
+                return address(0);
+            }
+    }
+   
+    function buyPolicy(uint _kissanNumber, uint _acers, uint _premium, string memory _location) public payable {
+        Status stat = elements[_kissanNumber].claims[elements[_kissanNumber].farmer].status; 
+        if (stat == Status.INACTIVE) {
+            require (msg.value >= _premium);
+            RegisterFarmer storage updateClaim = elements[_kissanNumber];
+            updateClaim.claims[elements[_kissanNumber].farmer].status = Status.ACTIVE;
+            updateClaim.claims[elements[_kissanNumber].farmer].premium = _premium;
+            updateClaim.claims[elements[_kissanNumber].farmer].totalClaim += 1;
+            updateClaim.claims[elements[_kissanNumber].farmer].acers = _acers;
+            updateClaim.claims[elements[_kissanNumber].farmer].location = _location;
+            emit claimPolicyStatus('policy activate successfully');
+        }else {
+            address(msg.sender).transfer(msg.value);
+            emit claimPolicyStatus('Not Allowed to buy new policy');
+        }
+        
+    }
+    function claimForDamage(uint _kissanNumber, string memory _reason, uint _claimCost) public payable{
+        Status stat = elements[_kissanNumber].claims[elements[_kissanNumber].farmer].status; 
+        if (stat == Status.ACTIVE) {
+            require(address(this).balance >= _claimCost);
+            address(uint160(elements[_kissanNumber].farmer)).transfer(_claimCost);
+            RegisterFarmer storage updateClaim = elements[_kissanNumber];
+            updateClaim.claims[elements[_kissanNumber].farmer].status = Status.INACTIVE;
+            updateClaim.claims[elements[_kissanNumber].farmer].reason = _reason;
+            emit claimPolicyStatus('farmer claimed success');
         } else {
-            emit CallForRegister("Please register in smartContract");
-            return false;
+            
+            emit claimPolicyStatus('farmer claimed failed');
         }
+
     }
-    function verifiyKissanNumberOracle(uint number) public {
-         
-    }
-    function addUser(string memory _name, string memory _location, uint _kissanNumber) public {
-        // bool valid = verifiyKissanNumber(_kissanNumber)
-        bool valid = true;
-        emit verifyKissanNumber(_kissanNumber);
-        if(valid) {
-        Iterator.put(knownValues, msg.sender, _name, _location, _kissanNumber);
-        } else {
-            // reject user for invalid kissan Number;
-            emit RejectUserRegister('Invalid Kissan Number, Please verifiy with valid number', _kissanNumber);
-        }
-    }
-//   Adverse weather conditions
-// Fire
-// Insects*
-// Plant disease*
-// Wildlife
-// Earthquake
-// Volcanic eruption
-// Failure of the irrigation water supply, if applicable, due to an unavoidable cause of loss occurring within the insurance period.
-    // Apply for new policy
-    function check(uint _number) public returns(Iterator.Status) {
-        claimState = Iterator.getClaimStatus(knownValues, _number);
-    }
-    function applyPolicy(string memory _cropName, uint _cropPrice, uint _landArea, uint _kissanNumber) public returns(Iterator.Status) {
-        if(claimState == Iterator.Status.INACTIVE || claimState == Iterator.Status.CANCLED) {
-            // Send details to oracle to calculate the crop risk premium
-           emit sendCropAnyalsis(_cropName, _cropPrice, _landArea, _kissanNumber);
-        }
-    }
-    
-    // Once the oracle confirmed risk as user to pay 
-    
-    function payForPolicy(uint _kissanNumber, uint _premium) public payable {
-        require(msg.value == _premium)
+    function addUser(string memory _name, string memory _location, uint _kissanNumber) public returns (bool) {
+        bool exists = elements[_kissanNumber].farmer != address(0);
+          if (!exists) {
+             keys.push(_kissanNumber);
+          }
+            elements[_kissanNumber].name = _name;
+            elements[_kissanNumber].location = _location;
+            elements[_kissanNumber].kisanNumber = _kissanNumber;
+            elements[_kissanNumber].farmer = msg.sender;
+            elements[_kissanNumber].claims[msg.sender].status = Status.INACTIVE;
+            elements[_kissanNumber].claims[msg.sender].premium = 0;
+            elements[_kissanNumber].claims[msg.sender].totalClaim = 0;
+            
+          return true;
     }
 }
