@@ -19,7 +19,7 @@ contract CropDamage {
       uint[] keys;
     mapping(uint => RegisterFarmer) public elements;
     address private admin;
-    constructor() public {
+    constructor() public payable {
         admin = msg.sender;
     }
     event claimPolicyStatus(string);
@@ -35,14 +35,26 @@ contract CropDamage {
                 return address(0);
             }
     }
+    modifier onlyFarmer() {
+        require(msg.sender != admin);
+        _;
+    }
+    modifier onlyActive(uint _kissanNumber) {
+         Status stat = elements[_kissanNumber].claims[elements[_kissanNumber].farmer].status; 
+         require(stat == Status.ACTIVE);
+         _;
+    }
+    modifier onlyInactive(uint _kissanNumber) {
+        Status stat = elements[_kissanNumber].claims[elements[_kissanNumber].farmer].status; 
+        require(stat == Status.INACTIVE);
+        _;
+    }
    function returnClaimDetails(uint _kissanNumber) public view returns(uint, string memory, uint, Status) {
        Claim storage c = elements[_kissanNumber].claims[elements[_kissanNumber].farmer];
        return (c.premium, c.location, c.acers, c.status);
    } 
-    function buyPolicy(uint _kissanNumber, uint _acers, uint _premium, string memory _location) public payable {
-        Status stat = elements[_kissanNumber].claims[elements[_kissanNumber].farmer].status; 
-        if (stat == Status.INACTIVE) {
-            require (msg.value >= _premium);
+    function buyPolicy(uint _kissanNumber, uint _acers, uint _premium, string memory _location) onlyFarmer onlyInactive(_kissanNumber) public payable returns(bool) {
+            if(msg.value >= _premium){
             RegisterFarmer storage updateClaim = elements[_kissanNumber];
             updateClaim.claims[elements[_kissanNumber].farmer].status = Status.ACTIVE;
             updateClaim.claims[elements[_kissanNumber].farmer].premium = _premium;
@@ -50,28 +62,22 @@ contract CropDamage {
             updateClaim.claims[elements[_kissanNumber].farmer].acers = _acers;
             updateClaim.claims[elements[_kissanNumber].farmer].location = _location;
             emit claimPolicyStatus('policy activate successfully');
+            return true;
         }else {
             address(msg.sender).transfer(msg.value);
             emit claimPolicyStatus('Not Allowed to buy new policy');
+            return false;
         }
-        
     }
-    function claimForDamage(uint _kissanNumber, string memory _reason, uint _claimCost) public payable{
-        Status stat = elements[_kissanNumber].claims[elements[_kissanNumber].farmer].status; 
-        if (stat == Status.ACTIVE) {
-            require(address(this).balance >= _claimCost);
-            address(uint160(elements[_kissanNumber].farmer)).transfer(_claimCost);
-            RegisterFarmer storage updateClaim = elements[_kissanNumber];
-            updateClaim.claims[elements[_kissanNumber].farmer].status = Status.INACTIVE;
-            updateClaim.claims[elements[_kissanNumber].farmer].reason = _reason;
-            emit claimPolicyStatus('farmer claimed success');
-        } else {
-            
-            emit claimPolicyStatus('farmer claimed failed');
-        }
-
+    function claimForDamage(uint _kissanNumber, string memory _reason, uint _claimCost) onlyFarmer onlyActive(_kissanNumber) public{
+        require(address(this).balance >= _claimCost);
+        address(uint160(elements[_kissanNumber].farmer)).transfer(_claimCost);
+        RegisterFarmer storage updateClaim = elements[_kissanNumber];
+        updateClaim.claims[elements[_kissanNumber].farmer].status = Status.INACTIVE;
+        updateClaim.claims[elements[_kissanNumber].farmer].reason = _reason;
+        emit claimPolicyStatus('farmer claimed success');
     }
-    function addUser(string memory _name, string memory _location, uint _kissanNumber) public returns (bool) {
+    function addUser(string memory _name, string memory _location, uint _kissanNumber) onlyFarmer public returns (bool) {
         bool exists = elements[_kissanNumber].farmer != address(0);
           if (!exists) {
              keys.push(_kissanNumber);
@@ -83,7 +89,6 @@ contract CropDamage {
             elements[_kissanNumber].claims[msg.sender].status = Status.INACTIVE;
             elements[_kissanNumber].claims[msg.sender].premium = 0;
             elements[_kissanNumber].claims[msg.sender].totalClaim = 0;
-            
           return true;
     }
 }
