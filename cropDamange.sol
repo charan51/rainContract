@@ -35,7 +35,10 @@ contract CropDamage {
                 return address(0);
             }
     }
-   
+   function returnClaimDetails(uint _kissanNumber) public view returns(uint, string memory, uint, Status) {
+       Claim storage c = elements[_kissanNumber].claims[elements[_kissanNumber].farmer];
+       return (c.premium, c.location, c.acers, c.status);
+   } 
     function buyPolicy(uint _kissanNumber, uint _acers, uint _premium, string memory _location) public payable {
         Status stat = elements[_kissanNumber].claims[elements[_kissanNumber].farmer].status; 
         if (stat == Status.INACTIVE) {
