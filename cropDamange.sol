@@ -1,94 +1,71 @@
-pragma solidity  ^0.5.0;
-contract CropDamage {
-    enum Status {ACTIVE, INACTIVE, CANCLED, REJECTED}
-    struct Claim {
-        Status status;
-        uint premium;
-        uint acers;
-        string location;
-        string reason;
-        uint totalClaim;
-    }
-    struct RegisterFarmer{
-        address farmer;
-        string name;
-        string location;
-        uint kisanNumber;
-        mapping(address => Claim) claims;
-    }
-      uint[] keys;
-    mapping(uint => RegisterFarmer) public elements;
+pragma solidity ^0.5.0;
+import {Iterator} from './utils.sol';
+contract CropDamagev1 {
     address private admin;
-    constructor() public payable {
+    Iterator.Status ClaimStatus;
+    Iterator.Data farmValues;
+    constructor() public {
         admin = msg.sender;
     }
-    event claimPolicyStatus(string);
-    event CallForRegister(string);
-    event RejectUserRegister(string, uint);
-    event verifyKissanNumber(uint);
-    event sendCropAnyalsis(string, uint, uint);
-    function verifyFarmer(uint number) public view returns (address) {
-        bool exists = elements[number].farmer != address(0);
-            if(exists){
-           return elements[number].farmer;
-            }else{
-                return address(0);
-            }
+    
+    // Modifiers 
+    modifier onlyAdmin() {
+        require(msg.sender == admin, 'Only admin has access');
+        _;
     }
     modifier onlyFarmer() {
-        require(msg.sender != admin);
+        require(msg.sender != admin, 'Only Farmer has access');
         _;
     }
-    modifier onlyActive(uint _kissanNumber) {
-         Status stat = elements[_kissanNumber].claims[elements[_kissanNumber].farmer].status; 
-         require(stat == Status.ACTIVE);
-         _;
-    }
-    modifier onlyInactive(uint _kissanNumber) {
-        Status stat = elements[_kissanNumber].claims[elements[_kissanNumber].farmer].status; 
-        require(stat == Status.INACTIVE);
+    modifier claimInActive(uint _kissanNumber) {
+        Iterator.Status status = farmValues.farmerList[_kissanNumber].status;
+        require(status == Iterator.Status.INACTIVE, "policy already bought! or Policy is not activate");
         _;
     }
-   function returnClaimDetails(uint _kissanNumber) public view returns(uint, string memory, uint, Status) {
-       Claim storage c = elements[_kissanNumber].claims[elements[_kissanNumber].farmer];
-       return (c.premium, c.location, c.acers, c.status);
-   } 
-    function buyPolicy(uint _kissanNumber, uint _acers, uint _premium, string memory _location) onlyFarmer onlyInactive(_kissanNumber) public payable returns(bool) {
-            if(msg.value >= _premium){
-            RegisterFarmer storage updateClaim = elements[_kissanNumber];
-            updateClaim.claims[elements[_kissanNumber].farmer].status = Status.ACTIVE;
-            updateClaim.claims[elements[_kissanNumber].farmer].premium = _premium;
-            updateClaim.claims[elements[_kissanNumber].farmer].totalClaim += 1;
-            updateClaim.claims[elements[_kissanNumber].farmer].acers = _acers;
-            updateClaim.claims[elements[_kissanNumber].farmer].location = _location;
-            emit claimPolicyStatus('policy activate successfully');
+    modifier claimActive(uint _kissanNumber) {
+        Iterator.Status status = Iterator.getClaimStatus(farmValues, _kissanNumber);
+        require(status == Iterator.Status.ACTIVE, "policy already bought!");
+        _;
+    }
+    // events
+    event farmerActionStatus(string);
+    
+    // function 
+    function addFarmer(uint _kissanNumber, string memory _name, string memory _location) public onlyFarmer returns(bool) {
+        bool exists = farmValues.farmerList[_kissanNumber].farmerAddress != address(0);
+        if(!exists) {
+            Iterator.add(farmValues, address(msg.sender), _name, _location, _kissanNumber);
+            emit farmerActionStatus("Farmer register successfully");
             return true;
-        }else {
-            address(msg.sender).transfer(msg.value);
-            emit claimPolicyStatus('Not Allowed to buy new policy');
+        } else {
+            emit farmerActionStatus("Farmer register failed, already registered!!!");
             return false;
         }
     }
-    function claimForDamage(uint _kissanNumber, string memory _reason, uint _claimCost) onlyFarmer onlyActive(_kissanNumber) public{
-        require(address(this).balance >= _claimCost);
-        address(uint160(elements[_kissanNumber].farmer)).transfer(_claimCost);
-        RegisterFarmer storage updateClaim = elements[_kissanNumber];
-        updateClaim.claims[elements[_kissanNumber].farmer].status = Status.INACTIVE;
-        updateClaim.claims[elements[_kissanNumber].farmer].reason = _reason;
-        emit claimPolicyStatus('farmer claimed success');
+    // Buy crop policy
+    
+    function buyPolicy(uint _kissanNumber, uint _cropPrice, uint _landArea, string memory _cropLocaton) public onlyFarmer claimInActive(_kissanNumber) payable {
+        
+        if(_kissanNumber != 0 && _cropPrice != 0 && _landArea != 0 && bytes(_cropLocaton).length != 0){
+        uint PremiumCost = (uint(6000)/uint(100))*(uint(_cropPrice)*uint(_landArea));
+        uint totalPremiumCost = (uint(_cropPrice)*uint(_landArea)) - PremiumCost;
+        uint totalCoverage =  uint(_cropPrice)*uint(_landArea);
+        require(msg.value == totalPremiumCost, 'Premium amount paid too less');
+        farmValues.farmerList[_kissanNumber].premium = totalPremiumCost;
+        farmValues.farmerList[_kissanNumber].coverage = totalCoverage;
+        farmValues.farmerList[_kissanNumber].landAcers = _landArea;
+        farmValues.farmerList[_kissanNumber].status = Iterator.Status.ACTIVE;
+        farmValues.farmerList[_kissanNumber].cropLocation = _cropLocaton;
+        farmValues.farmerList[_kissanNumber].policyNumber +=1;
+        emit farmerActionStatus("Farmer purchased policy successfully");
+        } else {
+            emit farmerActionStatus("Farmer failed to purchase, payment reverted");
+            revert();
+        }
     }
-    function addUser(string memory _name, string memory _location, uint _kissanNumber) onlyFarmer public returns (bool) {
-        bool exists = elements[_kissanNumber].farmer != address(0);
-          if (!exists) {
-             keys.push(_kissanNumber);
-          }
-            elements[_kissanNumber].name = _name;
-            elements[_kissanNumber].location = _location;
-            elements[_kissanNumber].kisanNumber = _kissanNumber;
-            elements[_kissanNumber].farmer = msg.sender;
-            elements[_kissanNumber].claims[msg.sender].status = Status.INACTIVE;
-            elements[_kissanNumber].claims[msg.sender].premium = 0;
-            elements[_kissanNumber].claims[msg.sender].totalClaim = 0;
-          return true;
+    function checkElement(uint _kissanNumber) public view returns(Iterator.Status) {
+        return Iterator.getClaimStatus(farmValues, _kissanNumber);
     }
+    
+
 }
