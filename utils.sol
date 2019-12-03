@@ -1,48 +1,54 @@
 pragma solidity >=0.4.22 <0.7.0;
 
 library Iterator {
-    enum Status {ACTIVE, INACTIVE, CANCLED, REJECTED}
-    struct Claim {
-        Status status;
-        uint premium;
-        uint totalClaim;
-    }
+    enum Status {ACTIVE, INACTIVE}
     struct RegisterFarmer{
-        address farmer;
+        uint kissanNumber;
+        address payable farmerAddress;
         string name;
         string location;
-        uint kisanNumber;
-        mapping(address => Claim) claims;
+        string cropLocation;
+        uint policyNumber;
+        uint premium;
+        uint coverage;
+        Status status;
+        uint totalClaim;
+        string claimReason;
+        uint landAcers;
     }
     struct Data {
-        mapping(uint => RegisterFarmer) elements;
+        mapping(uint => RegisterFarmer) farmerList;
         uint[] keys;
     }
-       function put(Data storage self, address addr, string memory _name, string memory _location, uint _kissanNumber) public returns (bool) {
-          bool exists = self.elements[_kissanNumber].farmer != address(0);
-          if (!exists) {
-             self.keys.push(_kissanNumber);
-          }
-            self.elements[_kissanNumber].name = _name;
-            self.elements[_kissanNumber].location = _location;
-            self.elements[_kissanNumber].kisanNumber = _kissanNumber;
-            self.elements[_kissanNumber].farmer = addr;
-            self.elements[_kissanNumber].claims[addr].status = Status.INACTIVE;
-            self.elements[_kissanNumber].claims[addr].premium = 0;
-            self.elements[_kissanNumber].claims[addr].totalClaim = 0;
-          return true;
+       function add(Data storage self, address payable addr, string memory _name, string memory _location, uint _kissanNumber) public {
+            self.farmerList[_kissanNumber].name = _name;
+            self.farmerList[_kissanNumber].location = _location;
+            self.farmerList[_kissanNumber].kissanNumber = _kissanNumber;
+            self.farmerList[_kissanNumber].farmerAddress = addr;
+            self.farmerList[_kissanNumber].status = Status.INACTIVE;
+            self.farmerList[_kissanNumber].premium = 0;
+            self.farmerList[_kissanNumber].totalClaim = 0;
+            self.farmerList[_kissanNumber].claimReason = '0';
+            self.farmerList[_kissanNumber].landAcers = 0;
+            self.farmerList[_kissanNumber].policyNumber = 0;
+            self.farmerList[_kissanNumber].coverage = 0;
+            self.farmerList[_kissanNumber].cropLocation = '0';
         }
         function getKeyCount(Data storage self) public view returns (uint) {
            return self.keys.length;
         }
         function getElementAtIndex(Data storage self, uint index) public view returns (address) {
-           return self.elements[self.keys[index]].farmer;
+           return self.farmerList[self.keys[index]].farmerAddress;
         }
         function getElement(Data storage self, uint number) public view returns (address) {
-           return self.elements[number].farmer;
+           return self.farmerList[number].farmerAddress;
         }
         function getClaimStatus(Data storage self, uint number) public view returns (Status) {
-            return self.elements[number].claims[self.elements[number].farmer].status;
+            return self.farmerList[number].status;
+        }
+        function updateElements(Data storage self, uint number) public returns (bool) {
+            self.farmerList[number].status  = Status.ACTIVE;
+            return true;
         }
          
 }
