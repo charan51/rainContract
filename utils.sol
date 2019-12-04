@@ -1,4 +1,4 @@
-pragma solidity >=0.4.22 <0.7.0;
+pragma solidity ^0.5.0;
 
 library Iterator {
     enum Status {ACTIVE, INACTIVE}
@@ -8,7 +8,6 @@ library Iterator {
         string name;
         string location;
         string cropLocation;
-        uint policyNumber;
         uint premium;
         uint coverage;
         Status status;
@@ -30,7 +29,6 @@ library Iterator {
             self.farmerList[_kissanNumber].totalClaim = 0;
             self.farmerList[_kissanNumber].claimReason = '0';
             self.farmerList[_kissanNumber].landAcers = 0;
-            self.farmerList[_kissanNumber].policyNumber = 0;
             self.farmerList[_kissanNumber].coverage = 0;
             self.farmerList[_kissanNumber].cropLocation = '0';
         }
