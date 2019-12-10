@@ -1,5 +1,4 @@
 pragma solidity ^0.5.0;
-
 library Iterator {
     enum Status {ACTIVE, INACTIVE}
     struct RegisterFarmer{
