@@ -32,29 +32,29 @@ contract CropDamage {
     event farmerActionStatus(string);
     event farmerActionValue(uint);
     // Verify Farmer details
-    function verifyFarmer(uint number) public view returns (address) {
+    function verifyFarmer(uint number) external view returns (address) {
         bool exists = farmValues.farmerList[number].farmerAddress == address(0);
         require(exists == true, 'Farmer not register');
         return farmValues.farmerList[number].farmerAddress;
     }
     // to add a new farmer 
-    function addFarmer(uint _kissanNumber, string memory _name, string memory _location) public onlyFarmer returns(bool) {
+    function addFarmer(uint _kissanNumber, string calldata _name, string calldata _location) external onlyFarmer returns(bool) {
         require(_kissanNumber != 0 && bytes(_name).length != 0 && bytes(_location).length != 0, 'Empty fields not accepted');
         bool exists = farmValues.farmerList[_kissanNumber].farmerAddress == address(0);
         require(exists == true, 'Farmer register failed, already registered!!!');
         emit farmerActionStatus("Farmer register successfully");
-        Iterator.add(farmValues, address(msg.sender), _name, _location, _kissanNumber);
+        Iterator.add(farmValues, msg.sender, _name, _location, _kissanNumber);
         return true;
     }
     // calulate the policy crop policy
-    function calculatePremium(uint _cropPrice, uint _landArea) public pure returns (uint, uint) {
+    function calculatePremium(uint _cropPrice, uint _landArea) external pure returns (uint, uint) {
         uint PremiumCost = (uint(60)*uint(_cropPrice)*uint(_landArea))/(uint(100));
         uint totalPremiumCost = (uint(_cropPrice)*uint(_landArea)) - PremiumCost;
         uint totalCoverage =  uint(_cropPrice)*uint(_landArea)+PremiumCost;
         return (totalPremiumCost, totalCoverage);
     }
     // buyPolicy for crop
-    function buyPolicy(uint _kissanNumber, uint _cropPrice, uint _landArea, uint _premiumCost, uint _coverageCost, string memory _cropLocaton) public onlyFarmer claimInActive(_kissanNumber) payable {
+    function buyPolicy(uint _kissanNumber, uint _cropPrice, uint _landArea, uint _premiumCost, uint _coverageCost, string calldata _cropLocaton) external onlyFarmer claimInActive(_kissanNumber) payable {
         require(_kissanNumber != 0 && _cropPrice != 0 && _landArea != 0 && bytes(_cropLocaton).length != 0, 'Empty fields not accepted');
         require(msg.value == _premiumCost, 'Premium amount paid too less');
         emit farmerActionStatus("Farmer purchased policy successfully");
@@ -64,12 +64,17 @@ contract CropDamage {
         farmValues.farmerList[_kissanNumber].status = Iterator.Status.ACTIVE;
         farmValues.farmerList[_kissanNumber].cropLocation = _cropLocaton;
     }
-    function getClaimDetails(uint _kissanNumber) public view returns(uint, string memory, uint, Iterator.Status, uint) {
+    function getClaimDetails(uint _kissanNumber) external view returns(uint _premium, string memory _location, uint _landAcers, Iterator.Status _status, uint _totalCoverage) {
        Iterator.RegisterFarmer memory c = farmValues.farmerList[_kissanNumber];
-       return (c.premium, c.location, c.landAcers, c.status, c.coverage);
+       _premium = c.premium;
+       _location = c.location;
+       _landAcers = c.landAcers;
+       _status = c.status;
+       _totalCoverage = c.coverage;
+       return (_premium, _location, _landAcers, _status, _totalCoverage);
    } 
     // claim for policy
-    function claim_for_damage(uint _kissanNumber, string memory _reason) public onlyFarmer claimActive(_kissanNumber) {
+    function claim_for_damage(uint _kissanNumber, string calldata _reason) external onlyFarmer claimActive(_kissanNumber) {
         require(address(farmValues.farmerList[_kissanNumber].farmerAddress) == msg.sender, "Invalid farmer address");
         emit farmerActionStatus("farmer claimed successfully");
         farmValues.farmerList[_kissanNumber].status = Iterator.Status.INACTIVE;
